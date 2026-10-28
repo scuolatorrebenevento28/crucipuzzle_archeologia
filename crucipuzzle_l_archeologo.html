@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crucipuzzle: L'Archeologo</title>
+    <!-- Tailwind CSS per uno stile moderno e responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Canvas Confetti per la festa di vittoria -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts: Fredoka per un look per bambini -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', cursive, sans-serif;
+            background-color: #fefae0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Stili per la griglia */
+        .grid-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border-radius: 0.5rem;
+            background-color: #ffffff;
+            box-shadow: 0 2px 0 #dda15e;
+            color: #bc6c25;
+            touch-action: none;
+        }
+
+        @media (min-width: 640px) {
+            .grid-cell {
+                font-size: 1.5rem;
+            }
+        }
+
+        .grid-cell:hover {
+            background-color: #fef08a;
+            transform: scale(1.05);
+        }
+
+        .grid-cell.selected {
+            background-color: #fde047 !important;
+            color: #78350f !important;
+            transform: scale(0.95);
+        }
+
+        .grid-cell.found {
+            background-color: #86efac !important;
+            color: #14532d !important;
+            box-shadow: 0 2px 0 #22c55e;
+            animation: pulse 0.3s ease-in-out;
+        }
+
+        /* Stili per la stampa */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: white !important;
+            }
+            .print-container {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+            .grid-cell {
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen text-amber-950 p-3 sm:p-6 flex flex-col items-center">
+
+    <!-- Intestazione -->
+    <header class="text-center mb-4 max-w-2xl w-full">
+        <div class="inline-block bg-amber-200 text-amber-900 px-4 py-1 rounded-full text-sm font-semibold mb-2 shadow-sm">
+            Classe 3ª Primaria • Storia & Avventura 🏺
+        </div>
+        <h1 class="text-3xl sm:text-5xl font-extrabold text-amber-800 tracking-wide drop-shadow-sm">
+            L'ARCHEOLOGO
+        </h1>
+        <p class="text-amber-700 text-sm sm:text-base mt-1">
+            Trova tutte le 10 parole nascoste nella griglia! Puoi cercarle in orizzontale e verticale.
+        </p>
+    </header>
+
+    <!-- Contenitore Principale -->
+    <main class="w-full max-w-4xl bg-amber-100/80 backdrop-blur-sm rounded-3xl p-4 sm:p-8 shadow-xl border-4 border-amber-300 print-container">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Area Griglia del Crucipuzzle -->
+            <div class="lg:col-span-7 flex flex-col items-center">
+                <div id="grid-container" class="grid grid-cols-10 gap-1.5 sm:gap-2 w-full max-w-[420px] bg-amber-200 p-3 rounded-2xl shadow-inner border-2 border-amber-400">
+                    <!-- Generato via JS -->
+                </div>
+
+                <!-- Pulsanti Azione -->
+                <div class="flex flex-wrap justify-center gap-3 mt-5 w-full no-print">
+                    <button id="reset-btn" class="bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold py-2.5 px-5 rounded-2xl shadow-md transition flex items-center gap-2 text-sm sm:text-base">
+                        🔄 Ricomincia
+                    </button>
+                    <button id="print-btn" onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold py-2.5 px-5 rounded-2xl shadow-md transition flex items-center gap-2 text-sm sm:text-base">
+                        🖨️ Stampa Scheda
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lista delle Parole da Trovare -->
+            <div class="lg:col-span-5 bg-white/90 rounded-2xl p-4 sm:p-5 shadow-md border-2 border-amber-200">
+                <div class="flex justify-between items-center mb-3 border-b-2 border-amber-100 pb-2">
+                    <h2 class="text-xl font-bold text-amber-900 flex items-center gap-2">
+                        📋 Parole da cercare:
+                    </h2>
+                    <span id="progress-text" class="text-sm font-bold bg-amber-200 text-amber-800 px-3 py-1 rounded-full">
+                        0 / 10
+                    </span>
+                </div>
+
+                <ul id="word-list" class="grid grid-cols-2 gap-2 text-sm sm:text-base font-semibold">
+                    <!-- Generato via JS -->
+                </ul>
+
+                <!-- Box aiuto/istruzioni -->
+                <div class="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800 no-print">
+                    💡 <strong>Come si gioca:</strong> Clicca o trascina sulla prima e sull'ultima lettera della parola per evidenziarla!
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal Vittoria -->
+    <div id="victory-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl border-4 border-yellow-400 transform transition-all scale-95 animate-bounce-once">
+            <div class="text-6xl mb-3">🏆</div>
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-amber-800 mb-2">Bravissimo!</h2>
+            <p class="text-amber-700 mb-6 font-medium">
+                Hai trovato tutte le parole! Sei un vero Piccolo Archeologo! 🏺⛏️
+            </p>
+            <button id="modal-restart-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-3 rounded-2xl shadow-lg hover:shadow-xl transition text-lg">
+                Gioca Ancora!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Configurazione delle parole e della griglia
+        const WORDS_DATA = [
+            { word: 'SCAVO', emoji: '⛏️' },
+            { word: 'PENNELLO', emoji: '🖌️' },
+            { word: 'REPERTO', emoji: '🏺' },
+            { word: 'FOSSILE', emoji: '🦴' },
+            { word: 'MUMMIA', emoji: '🪦' },
+            { word: 'MAPPA', emoji: '🗺️' },
+            { word: 'STORIA', emoji: '📚' },
+            { word: 'MUSEO', emoji: '🏛️' },
+            { word: 'LENTE', emoji: '🔍' },
+            { word: 'TERRA', emoji: '🌍' }
+        ];
+
+        const GRID_SIZE = 10;
+        let grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(''));
+        let foundWords = new Set();
+        let selectedCells = [];
+        let isMouseDown = false;
+
+        // Elementi DOM
+        const gridContainer = document.getElementById('grid-container');
+        const wordListElement = document.getElementById('word-list');
+        const progressText = document.getElementById('progress-text');
+        const victoryModal = document.getElementById('victory-modal');
+        const resetBtn = document.getElementById('reset-btn');
+        const modalRestartBtn = document.getElementById('modal-restart-btn');
+
+        // Generatore di numeri casuali
+        function getRandomInt(max) {
+            return Math.floor(Math.random() * max);
+        }
+
+        // Posiziona le parole nella griglia
+        function placeWords() {
+            // Reset griglia
+            grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(''));
+
+            // Ordina le parole dalla più lunga alla più corta per un placement migliore
+            const sortedWords = [...WORDS_DATA].sort((a, b) => b.word.length - a.word.length);
+
+            for (let item of sortedWords) {
+                const word = item.word;
+                let placed = false;
+                let attempts = 0;
+
+                while (!placed && attempts < 100) {
+                    attempts++;
+                    // Solo Orizzontale (0) o Verticale (1) per la 3ª elementare (facile)
+                    const direction = getRandomInt(2); 
+                    let row, col;
+
+                    if (direction === 0) { // Orizzontale (sinistra -> destra)
+                        row = getRandomInt(GRID_SIZE);
+                        col = getRandomInt(GRID_SIZE - word.length + 1);
+                    } else { // Verticale (alto -> basso)
+                        row = getRandomInt(GRID_SIZE - word.length + 1);
+                        col = getRandomInt(GRID_SIZE);
+                    }
+
+                    // Verifica sovrapposizione pulita
+                    let canPlace = true;
+                    for (let i = 0; i < word.length; i++) {
+                        const r = direction === 0 ? row : row + i;
+                        const c = direction === 0 ? col + i : col;
+                        if (grid[r][c] !== '' && grid[r][c] !== word[i]) {
+                            canPlace = false;
+                            break;
+                        }
+                    }
+
+                    // Inserisci parola
+                    if (canPlace) {
+                        for (let i = 0; i < word.length; i++) {
+                            const r = direction === 0 ? row : row + i;
+                            const c = direction === 0 ? col + i : col;
+                            grid[r][c] = word[i];
+                        }
+                        placed = true;
+                    }
+                }
+            }
+
+            // Riempi le celle vuote con lettere casuali dell'alfabeto italiano
+            const alphabet = 'ABCDEFGHILMNOPQRSTUVZ';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (grid[r][c] === '') {
+                        grid[r][c] = alphabet[getRandomInt(alphabet.length)];
+                    }
+                }
+            }
+        }
+
+        // Renderizza la griglia nell'HTML
+        function renderGrid() {
+            gridContainer.innerHTML = '';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.textContent = grid[r][c];
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+
+                    // Eventi Mouse / Touch
+                    cell.addEventListener('mousedown', () => handleCellStart(r, c));
+                    cell.addEventListener('mouseenter', () => handleCellEnter(r, c));
+                    cell.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        handleCellStart(r, c);
+                    });
+
+                    gridContainer.appendChild(cell);
+                }
+            }
+        }
+
+        // Gestione Touch Move (per trascinamento su schermi touch)
+        gridContainer.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (target && target.classList.contains('grid-cell')) {
+                const r = parseInt(target.dataset.row);
+                const c = parseInt(target.dataset.col);
+                handleCellEnter(r, c);
+            }
+        });
+
+        document.addEventListener('mouseup', handleCellEnd);
+        document.addEventListener('touchend', handleCellEnd);
+
+        // Renderizza la lista parole
+        function renderWordList() {
+            wordListElement.innerHTML = '';
+            WORDS_DATA.forEach(item => {
+                const isFound = foundWords.has(item.word);
+                const li = document.createElement('li');
+                li.className = `flex items-center gap-2 p-2 rounded-xl transition ${
+                    isFound 
+                        ? 'bg-emerald-100 text-emerald-800 line-through opacity-75' 
+                        : 'bg-amber-50 text-amber-900 border border-amber-200'
+                }`;
+                li.innerHTML = `
+                    <span class="text-lg">${item.emoji}</span>
+                    <span class="tracking-wide">${item.word}</span>
+                `;
+                wordListElement.appendChild(li);
+            });
+
+            progressText.textContent = `${foundWords.size} / ${WORDS_DATA.length}`;
+        }
+
+        // Logica di Selezione
+        function handleCellStart(r, c) {
+            isMouseDown = true;
+            selectedCells = [{ r, c }];
+            updateSelectionStyles();
+        }
+
+        function handleCellEnter(r, c) {
+            if (!isMouseDown || selectedCells.length === 0) return;
+
+            const start = selectedCells[0];
+            // Verifica che la selezione sia in linea retta (orizzontale o verticale)
+            if (start.r === r || start.c === c) {
+                selectedCells = [];
+                const rowDir = Math.sign(r - start.r);
+                const colDir = Math.sign(c - start.c);
+
+                let currR = start.r;
+                let currC = start.c;
+
+                while (true) {
+                    selectedCells.push({ r: currR, c: currC });
+                    if (currR === r && currC === c) break;
+                    currR += rowDir;
+                    currC += colDir;
+                }
+                updateSelectionStyles();
+            }
+        }
+
+        function handleCellEnd() {
+            if (!isMouseDown) return;
+            isMouseDown = false;
+
+            // Formiamo la parola selezionata
+            const selectedWord = selectedCells.map(cell => grid[cell.r][cell.c]).join('');
+            const reversedWord = selectedWord.split('').reverse().join('');
+
+            // Controlla se corrisponde a una parola valida
+            const foundItem = WORDS_DATA.find(item => 
+                (item.word === selectedWord || item.word === reversedWord) && !foundWords.has(item.word)
+            );
+
+            if (foundItem) {
+                foundWords.add(foundItem.word);
+                markCellsAsFound(selectedCells);
+                renderWordList();
+                playSuccessSound();
+
+                // Controllo Vittoria
+                if (foundWords.size === WORDS_DATA.length) {
+                    setTimeout(showVictory, 500);
+                }
+            }
+
+            // Pulisci selezione
+            selectedCells = [];
+            updateSelectionStyles();
+        }
+
+        // Aggiorna lo stile grafico della selezione in corso
+        function updateSelectionStyles() {
+            const allCells = gridContainer.children;
+            for (let cell of allCells) {
+                if (!cell.classList.contains('found')) {
+                    cell.classList.remove('selected');
+                }
+            }
+
+            selectedCells.forEach(sc => {
+                const index = sc.r * GRID_SIZE + sc.c;
+                const cellObj = allCells[index];
+                if (cellObj && !cellObj.classList.contains('found')) {
+                    cellObj.classList.add('selected');
+                }
+            });
+        }
+
+        // Segna le celle come "Trovate" in modo permanente
+        function markCellsAsFound(cells) {
+            const allCells = gridContainer.children;
+            cells.forEach(sc => {
+                const index = sc.r * GRID_SIZE + sc.c;
+                allCells[index].classList.add('found');
+            });
+        }
+
+        // Riproduce un semplice effetto sonoro tramite Web Audio API
+        function playSuccessSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+                osc.frequency.exponentialRampToValueAtTime(659.25, ctx.currentTime + 0.15); // E5
+
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } catch (e) {
+                // Audio non supportato o bloccato dal browser
+            }
+        }
+
+        // Schermata di Vittoria
+        function showVictory() {
+            victoryModal.classList.remove('hidden');
+            victoryModal.classList.add('flex');
+
+            // Lancio dei coriandoli!
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        // Inizializza/Riavvia il gioco
+        function initGame() {
+            foundWords.clear();
+            selectedCells = [];
+            victoryModal.classList.add('hidden');
+            victoryModal.classList.remove('flex');
+            placeWords();
+            renderGrid();
+            renderWordList();
+        }
+
+        // Listener dei pulsanti
+        resetBtn.addEventListener('click', initGame);
+        modalRestartBtn.addEventListener('click', initGame);
+
+        // Avvio automatico al caricamento della pagina
+        window.onload = initGame;
+    </script>
+</body>
+</html>
